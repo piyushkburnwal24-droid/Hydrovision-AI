@@ -5,10 +5,9 @@ class HydroCalculator:
     """
     Core physics and telemetry engine for Hydrovision-AI.
     Computes discharge rate, pressure, Reynolds number, and clog index
-    with rigorous physical boundary clamps.
+    with rigorous physical boundary clamps and full UI interface compatibility.
     """
     
-    # Fixture presets expected by the user interface UI
     PRESETS = {
         "Standard Kitchen Tap": {"baseline_width": 12.0, "nominal_flow": 3.8},
         "Bathroom Faucet": {"baseline_width": 9.0, "nominal_flow": 2.5},
@@ -21,31 +20,22 @@ class HydroCalculator:
         self.water_temp = water_temp
         self.tariff_rate = tariff_rate
         self.cv_metrics = cv_metrics or {}
-        self.preset = self.PRESETS.get(fixture_choice, {"baseline_width": custom_scale, "nominal_flow": 3.8})
-
-    def compute(self, width_px, continuity_score):
-        """
-        Instance method called by app.py to calculate diagnostics.
-        """
-        return self.compute_diagnostics(
-            {"stream_width_px": width_px, "continuity_score": continuity_score}, 
-            self.fixture_choice
-        )
-
-    @staticmethod
-    def compute_diagnostics(cv_metrics, preset_name="Standard Kitchen Tap"):
-        """
-        Computes fluid dynamics telemetry based on optical stream measurements.
-        """
-        width_px = cv_metrics.get("stream_width_px", 12.0)
-        continuity = cv_metrics.get("continuity_score", 85.0)
         
-        preset_data = HydroCalculator.PRESETS.get(preset_name, HydroCalculator.PRESETS["Standard Kitchen Tap"])
-        baseline_width = preset_data["baseline_width"]
-        nominal_flow = preset_data["nominal_flow"]
-        
+        # Resolve baseline parameters based on preset or custom override
+        preset_data = self.PRESETS.get(fixture_choice, {"baseline_width": custom_scale, "nominal_flow": 3.8})
+        self.baseline_width = preset_data["baseline_width"]
+        self.nominal_flow = preset_data["nominal_flow"]
+
+    def compute(self, width_px, continuity_score=85.0):
+        """
+        Instance method called directly by app.py to calculate telemetry safely.
+        Handles flexible argument structures.
+        """
+        if width_px is None or width_px <= 0:
+            width_px = self.baseline_width
+
         # 1. Discharge Rate (LPM) calculation mapped from stream thickness
-        raw_discharge = (width_px / baseline_width) * nominal_flow
+        raw_discharge = (width_px / self.baseline_width) * self.nominal_flow
         discharge_rate = round(min(max(raw_discharge, 1.5), 15.0), 2)
         
         # 2. Pressure (Bar) estimation based on flow velocity proxy
@@ -63,8 +53,8 @@ class HydroCalculator:
             flow_regime = "Turbulent Flow"
             
         # 4. Clog Index (%) calculated using deviation from normal stream profile
-        width_deviation = abs(baseline_width - width_px) / baseline_width
-        clog_factor = (width_deviation * 40.0) + ((100.0 - continuity) * 0.4)
+        width_deviation = abs(self.baseline_width - width_px) / self.baseline_width
+        clog_factor = (width_deviation * 40.0) + ((100.0 - continuity_score) * 0.4)
         clog_index = round(min(max(clog_factor, 1.0), 35.0), 1)
         
         # 5. Diagnostic Health Status
@@ -83,3 +73,13 @@ class HydroCalculator:
             "clog_index": clog_index,
             "diagnostic_status": diagnostic_status
         }
+
+    @staticmethod
+    def compute_diagnostics(cv_metrics, preset_name="Standard Kitchen Tap"):
+        """
+        Static compatibility wrapper for alternate calls.
+        """
+        width_px = cv_metrics.get("stream_width_px", 12.0)
+        continuity = cv_metrics.get("continuity_score", 85.0)
+        calc = HydroCalculator(fixture_choice=preset_name)
+        return calc.compute(width_px, continuity)
