@@ -2,26 +2,16 @@
 import numpy as np
 
 class SafeResultDict(dict):
-    """
-    A custom dictionary wrapper that prevents any KeyError by returning 
-    sensible safe defaults for any missing telemetry or report keys.
-    """
     def __getitem__(self, key):
         if key in self:
             return super().__getitem__(key)
-        # Fallbacks for any unexpected keys requested by app.py or report_generator.py
         if any(k in key for k in ['flow', 'lpm', 'rate', 'pressure', 'bar', 'index', 'clog', 'pct', 'reynolds', 'number']):
-            return 5.0
+            return 2.5
         if any(k in key for k in ['status', 'regime', 'action', 'state']):
             return "Optimal Fluid Pathway / Standard Operation"
         return 0.0
 
 class HydroCalculator:
-    """
-    Core physics and telemetry engine for Hydrovision-AI.
-    Fully immune to all KeyError and AttributeError exceptions.
-    """
-    
     PRESETS = {
         "Standard Kitchen Tap": {"baseline_width": 12.0, "nominal_flow": 3.8},
         "Bathroom Faucet": {"baseline_width": 9.0, "nominal_flow": 2.5},
@@ -38,7 +28,6 @@ class HydroCalculator:
         preset_data = self.PRESETS.get(self.fixture_choice, {"baseline_width": self.custom_scale, "nominal_flow": 3.8})
         self.baseline_width = float(preset_data.get("baseline_width", 12.0))
         self.nominal_flow = float(preset_data.get("nominal_flow", 3.8))
-        
         self.target_lpm = self.nominal_flow
 
     def compute(self, width_px, continuity_score=85.0):
@@ -59,13 +48,14 @@ class HydroCalculator:
         except (ValueError, TypeError):
             continuity_score = 85.0
 
+        # Realistic scaling based on fixture nominal flow instead of harsh max clamp
         raw_discharge = (width_px / self.baseline_width) * self.nominal_flow
-        discharge_rate = round(min(max(raw_discharge, 1.5), 15.0), 2)
+        discharge_rate = round(min(max(raw_discharge, 0.5), self.nominal_flow * 1.5), 2)
         
-        raw_pressure = (discharge_rate / 5.0) * 1.2
-        pressure_bar = round(min(max(raw_pressure, 0.4), 3.5), 2)
+        raw_pressure = (discharge_rate / self.nominal_flow) * 1.8
+        pressure_bar = round(min(max(raw_pressure, 0.2), 3.0), 2)
         
-        reynolds_number = int(discharge_rate * 1150)
+        reynolds_number = int(discharge_rate * 950)
         
         if reynolds_number < 2300:
             flow_regime = "Laminar Flow"
@@ -75,20 +65,19 @@ class HydroCalculator:
             flow_regime = "Turbulent Flow"
             
         width_deviation = abs(self.baseline_width - width_px) / self.baseline_width
-        clog_factor = (width_deviation * 40.0) + ((100.0 - continuity_score) * 0.4)
-        clog_index = round(min(max(clog_factor, 1.0), 35.0), 1)
+        clog_factor = (width_deviation * 30.0) + ((100.0 - continuity_score) * 0.3)
+        clog_index = round(min(max(clog_factor, 0.0), 40.0), 1)
         
         if clog_index > 20.0:
             diagnostic_status = "RESTRICTED / SCALE BUILDUP DETECTED"
             action_text = "Recommended: Clean aerator mesh or descale the fixture."
-        elif pressure_bar > 2.8:
+        elif pressure_bar > 2.5:
             diagnostic_status = "EXCESSIVE PRESSURE WARNING"
             action_text = "Recommended: Adjust inlet pressure reducing valve."
         else:
             diagnostic_status = "OPTIMAL FLUID PATHWAY"
             action_text = "System operating normally within standard parameters."
 
-        # Returning SafeResultDict wrapping all common and extra keys
         return SafeResultDict({
             "discharge_rate": discharge_rate,
             "flow_lpm": discharge_rate,
