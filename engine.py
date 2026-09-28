@@ -23,6 +23,15 @@ class HydroCalculator:
         self.cv_metrics = cv_metrics or {}
         self.preset = self.PRESETS.get(fixture_choice, {"baseline_width": custom_scale, "nominal_flow": 3.8})
 
+    def compute(self, width_px, continuity_score):
+        """
+        Instance method called by app.py to calculate diagnostics.
+        """
+        return self.compute_diagnostics(
+            {"stream_width_px": width_px, "continuity_score": continuity_score}, 
+            self.fixture_choice
+        )
+
     @staticmethod
     def compute_diagnostics(cv_metrics, preset_name="Standard Kitchen Tap"):
         """
