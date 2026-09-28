@@ -22,6 +22,9 @@ class HydroCalculator:
         preset_data = self.PRESETS.get(self.fixture_choice, {"baseline_width": self.custom_scale, "nominal_flow": 3.8})
         self.baseline_width = float(preset_data.get("baseline_width", 12.0))
         self.nominal_flow = float(preset_data.get("nominal_flow", 3.8))
+        
+        # Added to satisfy app.py attribute access
+        self.target_lpm = self.nominal_flow
 
     def compute(self, width_px, continuity_score=85.0):
         try:
@@ -41,7 +44,6 @@ class HydroCalculator:
         except (ValueError, TypeError):
             continuity_score = 85.0
 
-        # Calculations
         raw_discharge = (width_px / self.baseline_width) * self.nominal_flow
         discharge_rate = round(min(max(raw_discharge, 1.5), 15.0), 2)
         
@@ -68,7 +70,6 @@ class HydroCalculator:
         else:
             diagnostic_status = "OPTIMAL FLUID PATHWAY"
 
-        # Returning ALL possible dictionary key variations to prevent any future KeyError
         return {
             "discharge_rate": discharge_rate,
             "flow_lpm": discharge_rate,
