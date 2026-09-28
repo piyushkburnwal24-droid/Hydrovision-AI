@@ -7,22 +7,32 @@ class HydroCalculator:
     Computes discharge rate, pressure, Reynolds number, and clog index
     with rigorous physical boundary clamps.
     """
-    def __init__(self, cv_metrics=None):
+    
+    # Fixture presets expected by the user interface UI
+    PRESETS = {
+        "Standard Kitchen Tap": {"baseline_width": 12.0, "nominal_flow": 3.8},
+        "Bathroom Faucet": {"baseline_width": 9.0, "nominal_flow": 2.5},
+        "Shower Head": {"baseline_width": 20.0, "nominal_flow": 8.0}
+    }
+
+    def __init__(self, cv_metrics=None, preset_name="Standard Kitchen Tap"):
         self.cv_metrics = cv_metrics or {}
+        self.preset = self.PRESETS.get(preset_name, self.PRESETS["Standard Kitchen Tap"])
 
     @staticmethod
-    def compute_diagnostics(cv_metrics):
+    def compute_diagnostics(cv_metrics, preset_name="Standard Kitchen Tap"):
         """
         Computes fluid dynamics telemetry based on optical stream measurements.
         """
         width_px = cv_metrics.get("stream_width_px", 12.0)
         continuity = cv_metrics.get("continuity_score", 85.0)
         
-        # Baseline calibration reference (standard tap width in pixels)
-        baseline_width = 12.0
+        preset_data = HydroCalculator.PRESETS.get(preset_name, HydroCalculator.PRESETS["Standard Kitchen Tap"])
+        baseline_width = preset_data["baseline_width"]
+        nominal_flow = preset_data["nominal_flow"]
         
         # 1. Discharge Rate (LPM) calculation mapped from stream thickness
-        raw_discharge = (width_px / baseline_width) * 3.8
+        raw_discharge = (width_px / baseline_width) * nominal_flow
         discharge_rate = round(min(max(raw_discharge, 1.5), 15.0), 2)
         
         # 2. Pressure (Bar) estimation based on flow velocity proxy
