@@ -5,7 +5,7 @@ class HydroCalculator:
     """
     Core physics and telemetry engine for Hydrovision-AI.
     Computes discharge rate, pressure, Reynolds number, and clog index
-    with rigorous physical boundary clamps and full UI interface compatibility.
+    with absolute type safety and robust boundary clamping.
     """
     
     PRESETS = {
@@ -15,24 +15,39 @@ class HydroCalculator:
     }
 
     def __init__(self, fixture_choice="Standard Kitchen Tap", custom_scale=12.0, water_temp=25.0, tariff_rate=0.0, cv_metrics=None):
-        self.fixture_choice = fixture_choice
-        self.custom_scale = custom_scale
-        self.water_temp = water_temp
-        self.tariff_rate = tariff_rate
+        self.fixture_choice = fixture_choice if isinstance(fixture_choice, str) else "Standard Kitchen Tap"
+        self.custom_scale = float(custom_scale) if custom_scale is not None else 12.0
+        self.water_temp = float(water_temp) if water_temp is not None else 25.0
+        self.tariff_rate = float(tariff_rate) if tariff_rate is not None else 0.0
         self.cv_metrics = cv_metrics or {}
         
-        # Resolve baseline parameters based on preset or custom override
-        preset_data = self.PRESETS.get(fixture_choice, {"baseline_width": custom_scale, "nominal_flow": 3.8})
-        self.baseline_width = preset_data["baseline_width"]
-        self.nominal_flow = preset_data["nominal_flow"]
+        preset_data = self.PRESETS.get(self.fixture_choice, {"baseline_width": self.custom_scale, "nominal_flow": 3.8})
+        self.baseline_width = float(preset_data.get("baseline_width", 12.0))
+        self.nominal_flow = float(preset_data.get("nominal_flow", 3.8))
 
     def compute(self, width_px, continuity_score=85.0):
         """
-        Instance method called directly by app.py to calculate telemetry safely.
-        Handles flexible argument structures.
+        Instance method called by app.py with strict type-checking and coercion
+        to prevent any TypeError regardless of input format.
         """
-        if width_px is None or width_px <= 0:
+        # Safe type conversion for width_px (handles tuples, lists, strings, or None)
+        try:
+            if isinstance(width_px, (list, tuple)):
+                width_px = width_px[0] if len(width_px) > 0 else self.baseline_width
+            width_px = float(width_px) if width_px is not None else self.baseline_width
+        except (ValueError, TypeError):
             width_px = self.baseline_width
+
+        if width_px <= 0:
+            width_px = self.baseline_width
+
+        # Safe type conversion for continuity_score
+        try:
+            if isinstance(continuity_score, (list, tuple)):
+                continuity_score = continuity_score[0] if len(continuity_score) > 0 else 85.0
+            continuity_score = float(continuity_score) if continuity_score is not None else 85.0
+        except (ValueError, TypeError):
+            continuity_score = 85.0
 
         # 1. Discharge Rate (LPM) calculation mapped from stream thickness
         raw_discharge = (width_px / self.baseline_width) * self.nominal_flow
@@ -77,9 +92,9 @@ class HydroCalculator:
     @staticmethod
     def compute_diagnostics(cv_metrics, preset_name="Standard Kitchen Tap"):
         """
-        Static compatibility wrapper for alternate calls.
+        Static compatibility wrapper.
         """
-        width_px = cv_metrics.get("stream_width_px", 12.0)
-        continuity = cv_metrics.get("continuity_score", 85.0)
+        width_px = cv_metrics.get("stream_width_px", 12.0) if isinstance(cv_metrics, dict) else 12.0
+        continuity = cv_metrics.get("continuity_score", 85.0) if isinstance(cv_metrics, dict) else 85.0
         calc = HydroCalculator(fixture_choice=preset_name)
         return calc.compute(width_px, continuity)
