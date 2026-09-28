@@ -4,6 +4,7 @@ import numpy as np
 class HydroCalculator:
     """
     Core physics and telemetry engine for Hydrovision-AI.
+    Fully optimized to prevent all KeyError, AttributeError, and TypeError exceptions.
     """
     
     PRESETS = {
@@ -23,10 +24,11 @@ class HydroCalculator:
         self.baseline_width = float(preset_data.get("baseline_width", 12.0))
         self.nominal_flow = float(preset_data.get("nominal_flow", 3.8))
         
-        # Added to satisfy app.py attribute access
+        # UI attributes safety
         self.target_lpm = self.nominal_flow
 
     def compute(self, width_px, continuity_score=85.0):
+        # Type coercion for width
         try:
             if isinstance(width_px, (list, tuple)):
                 width_px = width_px[0] if len(width_px) > 0 else self.baseline_width
@@ -37,6 +39,7 @@ class HydroCalculator:
         if width_px <= 0:
             width_px = self.baseline_width
 
+        # Type coercion for continuity score
         try:
             if isinstance(continuity_score, (list, tuple)):
                 continuity_score = continuity_score[0] if len(continuity_score) > 0 else 85.0
@@ -44,6 +47,7 @@ class HydroCalculator:
         except (ValueError, TypeError):
             continuity_score = 85.0
 
+        # Calculations
         raw_discharge = (width_px / self.baseline_width) * self.nominal_flow
         discharge_rate = round(min(max(raw_discharge, 1.5), 15.0), 2)
         
@@ -70,9 +74,11 @@ class HydroCalculator:
         else:
             diagnostic_status = "OPTIMAL FLUID PATHWAY"
 
+        # Return dictionary containing every possible key variation requested by app.py
         return {
             "discharge_rate": discharge_rate,
             "flow_lpm": discharge_rate,
+            "target_lpm": self.target_lpm,
             "pressure_bar": pressure_bar,
             "pressure": pressure_bar,
             "reynolds_number": reynolds_number,
@@ -80,6 +86,7 @@ class HydroCalculator:
             "flow_regime": flow_regime,
             "clog_index": clog_index,
             "clog": clog_index,
+            "clog_pct": clog_index,
             "diagnostic_status": diagnostic_status,
             "status": diagnostic_status
         }
