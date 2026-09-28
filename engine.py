@@ -15,9 +15,13 @@ class HydroCalculator:
         "Shower Head": {"baseline_width": 20.0, "nominal_flow": 8.0}
     }
 
-    def __init__(self, cv_metrics=None, preset_name="Standard Kitchen Tap"):
+    def __init__(self, fixture_choice="Standard Kitchen Tap", custom_scale=12.0, water_temp=25.0, tariff_rate=0.0, cv_metrics=None):
+        self.fixture_choice = fixture_choice
+        self.custom_scale = custom_scale
+        self.water_temp = water_temp
+        self.tariff_rate = tariff_rate
         self.cv_metrics = cv_metrics or {}
-        self.preset = self.PRESETS.get(preset_name, self.PRESETS["Standard Kitchen Tap"])
+        self.preset = self.PRESETS.get(fixture_choice, {"baseline_width": custom_scale, "nominal_flow": 3.8})
 
     @staticmethod
     def compute_diagnostics(cv_metrics, preset_name="Standard Kitchen Tap"):
